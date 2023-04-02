@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 public class PracticeRestController {
+    
 
     //3
     // Создать метод который возвращает json {"path-variable": <значение 'value' из пути запроса>}
