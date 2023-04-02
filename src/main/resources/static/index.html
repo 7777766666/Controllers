@@ -1,0 +1,187 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script>
+        window.onload = () => {
+
+            /**
+             * @param response {Response}
+             * @param status {number}
+             */
+            function checkStatus(response, status = 200) {
+                if (response.status !== status) {
+                    throw `статус ответа ${response.status} а ожидался 200`;
+                }
+            }
+
+            /**
+             * @param response {Response}
+             * @param expected {String}
+             */
+            function checkContentType(response, expected) {
+                let contentType = response.headers.get("content-type");
+                if (!contentType || contentType.indexOf(expected) === -1) {
+                    throw `ожидался заголовок ответа content-type='${expected}'`
+                }
+            }
+
+            /**
+             * @param response {Response}
+             */
+            async function validateJson(response, validate) {
+                return await response.text().then((result) => {
+                    let json;
+                    try {
+                        json = JSON.parse(result);
+                    } catch (ex) {
+                        throw `Не удалось десереализовать контент ответа (ожидался json), но получен ${result}`;
+                    }
+                    validate(json);
+                    return result;
+                });
+            }
+
+            (function randomPFetch() {
+                let requestOptions = {
+                    method: 'GET',
+                    redirect: 'follow'
+                };
+
+                /**
+                 * @param response {Response}
+                 */
+                async function validateResponse(response) {
+                    checkStatus(response);
+                    checkContentType(response, "application/json");
+                    let result = await validateJson(response, (json) => {
+                        if (!json.randomValue || typeof json.randomValue !== "number") {
+                            throw `Ожидался json вида {"randomValue": <число>}, но был получен json ${JSON.stringify(json)}`;
+                        }
+                    });
+                    return `Тест прошел УСПЕШНО, получен json ${result} (рандомность не проверяется, сор!)`
+                }
+
+                let randomP = document.body.querySelector("#random");
+                fetch("http://localhost:8080/controller/random", requestOptions)
+                    .then(validateResponse)
+                    .then(result => randomP.textContent = `1) GET Запрос /controller/random ${result}`)
+                    .catch(error => randomP.textContent = `1) GET Запрос /controller/random ${error}`);
+            })();
+
+            (function htmlPFetch() {
+
+                let requestOptions = {
+                    method: 'GET',
+                    redirect: 'follow'
+                };
+
+                function validateResponse(text) {
+                    /**
+                     * @param response {Response}
+                     */
+                    return async (response) => {
+                        checkStatus(response);
+                        checkContentType(response, "text/html");
+                        let result = await response.text().then((result) => {
+                            let content = `Это ${text}`;
+                            result.indexOf(content);
+                            return content;
+                        });
+                        return `Тест прошел УСПЕШНО, получен html с контентом '${result}'`
+                    }
+                }
+
+                let htmlZbs = document.body.querySelector("#htmlZbs");
+                fetch("http://localhost:8080/controller/html", requestOptions)
+                    .then(validateResponse("zbs"))
+                    .then(result => htmlZbs.textContent = `2) GET Запрос /controller/html ${result}`)
+                    .catch(error => htmlZbs.textContent = `2) GET Запрос /controller/html ${error}`);
+                let htmlText = document.body.querySelector("#htmlText");
+                fetch("http://localhost:8080/controller/html?text=j.o.p.a", requestOptions)
+                    .then(validateResponse("j.o.p.a"))
+                    .then(result => htmlText.textContent = `2) GET Запрос /controller/html?text=j.o.p.a ${result}`)
+                    .catch(error => htmlText.textContent = `2) GET Запрос /controller/html?text=j.o.p.a ${error}`);
+            })();
+
+            (function pathVariableFetch() {
+
+                let requestOptions = {
+                    method: 'POST',
+                    redirect: 'follow'
+                };
+
+                /**
+                 * @param response {Response}
+                 */
+                async function validateResponse(response) {
+                    checkStatus(response);
+                    checkContentType(response, "application/json");
+                    let result = await validateJson(response, (json) => {
+                        if (!json["path-variable"] || typeof json["path-variable"] !== "string") {
+                            throw `Ожидался json вида {"path-variable": <строка>}, но был получен json ${JSON.stringify(json)}`;
+                        }
+                    });
+                    return `Тест прошел УСПЕШНО, получен json ${result}`
+                }
+
+                let pathVariable = document.body.querySelector("#pathVariable");
+                fetch("http://localhost:8080/rest/controller/jopa", requestOptions)
+                    .then(validateResponse)
+                    .then(result => pathVariable.textContent = `3) POST Запрос /rest/controller/jopa ${result}`)
+                    .catch(error => pathVariable.textContent = `3) POST Запрос /rest/controller/jopa ${error}`);
+            })();
+
+            (function bodyFetch() {
+
+                let myHeaders = new Headers();
+                myHeaders.append("Content-Type", "application/json");
+
+                let requestOptions = (body) => ({
+                    method: 'PUT',
+                    headers: myHeaders,
+                    body: body,
+                    redirect: 'follow'
+                });
+
+                /**
+                 * @param response {Response}
+                 */
+                let validateResponse = async (response, status) => {
+                    checkStatus(response, status);
+                    if ((await response.text())) {
+                        throw `Тело ответа не пустое`;
+                    }
+                    return `Тест прошел УСПЕШНО, получен статус ${status}`
+                };
+
+                let bodyNull = document.body.querySelector("#bodyNull");
+                fetch("http://localhost:8080/rest/controller/body", requestOptions(null))
+                    .then(response => validateResponse(response, 200))
+                    .then(result => bodyNull.textContent = `4) PUT Запрос /rest/controller/body пустое тело ${result}`)
+                    .catch(error => bodyNull.textContent = `4) PUT Запрос /rest/controller/body пустое тело ${error}`);
+
+                let bodyEven = document.body.querySelector("#bodyEven");
+                fetch("http://localhost:8080/rest/controller/body", requestOptions(JSON.stringify({"even-number": 4})))
+                    .then(response => validateResponse(response, 200))
+                    .then(result => bodyEven.textContent = `4) PUT Запрос /rest/controller/body {"even-number": 4} ${result}`)
+                    .catch(error => bodyEven.textContent = `4) PUT Запрос /rest/controller/body {"even-number": 4} ${error}`);
+
+                let bodyOdd = document.body.querySelector("#bodyOdd");
+                fetch("http://localhost:8080/rest/controller/body", requestOptions(JSON.stringify({"even-number": 3})))
+                    .then(response => validateResponse(response, 400))
+                    .then(result => bodyOdd.textContent = `4) PUT Запрос /rest/controller/body {"even-number": 3} ${result}`)
+                    .catch(error => bodyOdd.textContent = `4) PUT Запрос /rest/controller/body {"even-number": 3} ${error}`);
+            })();
+        }
+    </script>
+</head>
+<body>
+<p id="random"></p>
+<p id="htmlZbs"></p>
+<p id="htmlText"></p>
+<p id="pathVariable"></p>
+<p id="bodyNull"></p>
+<p id="bodyEven"></p>
+<p id="bodyOdd"></p>
+</body>
+</html>
