@@ -155,7 +155,7 @@
                 };
 
                 let bodyNull = document.body.querySelector("#bodyNull");
-                fetch("http://localhost:8080/rest/controller/body", requestOptions(null))
+                fetch("http://localhost:8080/rest/controller/body", requestOptions(undefined))
                     .then(response => validateResponse(response, 200))
                     .then(result => bodyNull.textContent = `4) PUT Запрос /rest/controller/body пустое тело ${result}`)
                     .catch(error => bodyNull.textContent = `4) PUT Запрос /rest/controller/body пустое тело ${error}`);
